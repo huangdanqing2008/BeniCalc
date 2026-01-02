@@ -3,16 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SlurryMaster | 渣浆泵智能选型</title>
+    <title>SlurryMaster Pro | 渣浆泵智能选型</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body { font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f0f4f8; }
         .input-group label { font-size: 0.875rem; font-weight: 600; color: #475569; margin-bottom: 0.25rem; display: block; }
-        .input-group input { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; transition: all 0.2s; }
-        .input-group input:focus { border-color: #2563eb; outline: none; ring: 2px; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .input-group input, .input-group select { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; transition: all 0.2s; }
+        .input-group input:focus, .input-group select:focus { border-color: #2563eb; outline: none; ring: 2px; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
         .card { background: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
         .result-value { font-family: 'Courier New', Courier, monospace; font-weight: 700; }
+        .pump-dims-table td { padding: 4px 8px; border-bottom: 1px solid #eee; }
+        .pump-dims-table tr:last-child td { border-bottom: none; }
+        /* 简单的SVG动画 */
+        .pump-icon { transition: transform 0.3s ease; }
+        .pump-icon:hover { transform: scale(1.05); }
         @media print {
             .no-print { display: none; }
             body { background: white; }
@@ -23,42 +28,61 @@
 <body class="text-slate-800">
 
     <!-- Navbar -->
-    <nav class="bg-slate-800 text-white p-4 shadow-lg">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
+    <nav class="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <i class="fa-solid fa-industry text-2xl text-blue-400"></i>
+                <div class="bg-blue-500 text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-gears text-xl"></i>
+                </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-wide">SlurryMaster</h1>
-                    <p class="text-xs text-slate-400">选矿厂渣浆泵选型助手</p>
+                    <h1 class="text-xl font-bold tracking-wide">SlurryMaster Pro</h1>
+                    <p class="text-xs text-slate-400">基于三联泵业 AH/HH/SP 系列数据</p>
                 </div>
             </div>
-            <button onclick="window.print()" class="no-print bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-sm transition">
-                <i class="fa-solid fa-print mr-2"></i>打印报告
-            </button>
+            <div class="flex gap-2">
+                 <button onclick="resetForm()" class="no-print bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-sm transition hidden md:block">
+                    <i class="fa-solid fa-rotate-left mr-2"></i>重置
+                </button>
+                <button onclick="window.print()" class="no-print bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded text-sm transition shadow-md">
+                    <i class="fa-solid fa-print mr-2"></i>打印报告
+                </button>
+            </div>
         </div>
     </nav>
 
-    <div class="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         <!-- 左侧：输入参数 -->
         <div class="lg:col-span-4 space-y-6">
             <div class="card p-6 border-t-4 border-blue-600">
-                <h2 class="text-lg font-bold mb-4 flex items-center">
-                    <i class="fa-solid fa-sliders text-blue-600 mr-2"></i> 工况参数输入
+                <h2 class="text-lg font-bold mb-4 flex items-center text-slate-800">
+                    <i class="fa-solid fa-sliders text-blue-600 mr-2"></i> 选型参数设置
                 </h2>
                 
                 <form id="calcForm" onsubmit="event.preventDefault(); calculatePump();" class="space-y-4">
                     
+                    <!-- 泵类型选择 -->
                     <div class="input-group">
-                        <label>矿浆流量 Q (m³/h)</label>
+                        <label class="text-blue-800">1. 选择泵类型</label>
+                        <select id="pump_type" onchange="updatePumpImage()" class="bg-blue-50 border-blue-200 font-semibold text-blue-900">
+                            <option value="horizontal">卧式渣浆泵 (AH/HH系列)</option>
+                            <option value="vertical">立式液下渣浆泵 (SP系列)</option>
+                        </select>
+                    </div>
+
+                    <div class="border-t border-slate-200 my-4"></div>
+
+                    <div class="input-group">
+                        <label class="text-blue-700">2. 干矿处理量 T (t/h)</label>
                         <div class="relative">
-                            <input type="number" id="flow" step="1" placeholder="例如: 280" required>
-                            <span class="absolute right-3 top-2 text-slate-400 text-sm">m³/h</span>
+                            <input type="number" id="solid_tph" step="1" placeholder="例如: 120" required class="border-blue-300 bg-white">
+                            <span class="absolute right-3 top-2 text-slate-500 text-sm font-bold">t/h (干)</span>
                         </div>
+                        <p class="text-xs text-slate-400 mt-1">输入干矿量，系统自动换算矿浆体积流量</p>
                     </div>
 
                     <div class="input-group">
-                        <label>扬程 H (m)</label>
+                        <label>3. 扬程 H (m)</label>
                         <div class="relative">
                             <input type="number" id="head" step="0.1" placeholder="例如: 45" required>
                             <span class="absolute right-3 top-2 text-slate-400 text-sm">m</span>
@@ -76,14 +100,15 @@
                         </div>
                     </div>
 
-                    <div class="bg-slate-50 p-3 rounded text-sm text-slate-600 border border-slate-200">
-                        <div class="flex justify-between items-center mb-1">
-                            <span>泵大致效率 (η):</span>
-                            <input type="number" id="efficiency" value="65" class="w-16 p-1 border rounded text-right bg-white">%
+                    <!-- 高级参数折叠 -->
+                    <div class="bg-slate-50 p-3 rounded text-sm text-slate-600 border border-slate-200 mt-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <span>设计效率估算 (η):</span>
+                            <input type="number" id="efficiency" value="65" class="w-20 p-1 border rounded text-right bg-white">%
                         </div>
                         <div class="flex justify-between items-center">
                             <span>电机富余系数 (SF):</span>
-                            <select id="sf" class="w-16 p-1 border rounded text-right bg-white">
+                            <select id="sf" class="w-20 p-1 border rounded text-right bg-white">
                                 <option value="1.1">1.1</option>
                                 <option value="1.2" selected>1.2</option>
                                 <option value="1.3">1.3</option>
@@ -92,12 +117,12 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition transform active:scale-95 flex justify-center items-center gap-2">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition transform active:scale-95 flex justify-center items-center gap-2 mt-4">
                         <i class="fa-solid fa-calculator"></i> 开始计算选型
                     </button>
                     
                     <button type="button" onclick="loadDemo()" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 font-semibold py-2 rounded-lg transition text-sm">
-                        加载示例数据 (球磨机排矿)
+                        加载示例数据
                     </button>
                 </form>
             </div>
@@ -108,26 +133,28 @@
             
             <!-- 矿浆性质结果 -->
             <div class="card p-6">
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">1. 矿浆物理性质计算</h3>
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">
+                    <i class="fa-solid fa-flask mr-2"></i> 工况参数计算
+                </h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div class="p-3 bg-slate-50 rounded">
+                    <div class="p-3 bg-blue-50 rounded border border-blue-100 shadow-sm">
+                        <div class="text-xs text-slate-500 font-semibold">计算矿浆流量 (Q)</div>
+                        <div class="text-2xl result-value text-blue-700 mt-1" id="res_flow_slurry">-</div>
+                        <div class="text-xs text-slate-400">m³/h</div>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded border border-slate-100">
                         <div class="text-xs text-slate-500">矿浆比重 (Sm)</div>
-                        <div class="text-xl result-value text-blue-700" id="res_sg_slurry">-</div>
+                        <div class="text-xl result-value text-slate-700 mt-1" id="res_sg_slurry">-</div>
                         <div class="text-xs text-slate-400">t/m³</div>
                     </div>
-                    <div class="p-3 bg-slate-50 rounded">
+                    <div class="p-3 bg-slate-50 rounded border border-slate-100">
                         <div class="text-xs text-slate-500">体积浓度 (Cv)</div>
-                        <div class="text-xl result-value text-blue-700" id="res_cv">-</div>
+                        <div class="text-xl result-value text-slate-700 mt-1" id="res_cv">-</div>
                         <div class="text-xs text-slate-400">%</div>
                     </div>
-                    <div class="p-3 bg-slate-50 rounded">
-                        <div class="text-xs text-slate-500">固体产量</div>
-                        <div class="text-xl result-value text-slate-700" id="res_tph_solid">-</div>
-                        <div class="text-xs text-slate-400">t/h</div>
-                    </div>
-                    <div class="p-3 bg-slate-50 rounded">
+                    <div class="p-3 bg-slate-50 rounded border border-slate-100">
                         <div class="text-xs text-slate-500">总矿浆重量</div>
-                        <div class="text-xl result-value text-slate-700" id="res_tph_total">-</div>
+                        <div class="text-xl result-value text-slate-700 mt-1" id="res_tph_total">-</div>
                         <div class="text-xs text-slate-400">t/h</div>
                     </div>
                 </div>
@@ -135,27 +162,32 @@
 
             <!-- 功率结果 -->
             <div class="card p-6 relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-100 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">2. 动力参数计算</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <div class="flex justify-between mb-2">
-                            <span class="text-slate-600">水轴功率 (Pw):</span>
-                            <span class="font-bold" id="res_p_water">- kW</span>
+                <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-50 rounded-bl-full -mr-12 -mt-12 opacity-80 pointer-events-none"></div>
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">
+                    <i class="fa-solid fa-bolt mr-2"></i> 动力参数计算
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-2 rounded hover:bg-slate-50 transition">
+                            <span class="text-slate-600 text-sm">清水轴功率 (Pw):</span>
+                            <span class="font-mono font-bold" id="res_p_water">- kW</span>
                         </div>
-                        <div class="flex justify-between mb-2">
-                            <span class="text-slate-600">矿浆轴功率 (Psh):</span>
-                            <span class="font-bold text-lg text-blue-700" id="res_p_shaft">- kW</span>
+                        <div class="flex justify-between items-center p-2 rounded bg-blue-50 border border-blue-100">
+                            <span class="text-blue-800 text-sm font-bold">矿浆轴功率 (Psh):</span>
+                            <span class="font-mono font-bold text-lg text-blue-700" id="res_p_shaft">- kW</span>
                         </div>
-                        <div class="text-xs text-slate-400 mt-1">
+                        <div class="text-[10px] text-slate-400 mt-1 pl-2">
                             *公式: P = (Q × H × Sm) / (367 × η)
                         </div>
                     </div>
-                    <div class="border-l pl-0 md:pl-6 border-slate-200">
-                        <div class="text-sm text-slate-500 mb-1">建议安装电机功率</div>
-                        <div class="text-3xl font-bold text-green-600 mb-1" id="res_p_motor">- kW</div>
-                        <div class="text-xs bg-green-100 text-green-800 inline-block px-2 py-1 rounded">
-                            已含富余系数 SF=<span id="display_sf">1.2</span>
+                    <div class="border-l pl-0 md:pl-8 border-slate-200">
+                        <div class="text-sm text-slate-500 mb-1">建议电机功率 (Install Power)</div>
+                        <div class="flex items-baseline gap-2">
+                            <div class="text-4xl font-bold text-green-600" id="res_p_motor">-</div>
+                            <div class="text-lg text-green-600 font-semibold">kW</div>
+                        </div>
+                        <div class="mt-2 text-xs bg-green-100 text-green-800 inline-block px-2 py-1 rounded">
+                            已含富余系数 SF = <span id="display_sf">1.2</span>
                         </div>
                     </div>
                 </div>
@@ -163,142 +195,285 @@
 
             <!-- 选型推荐 -->
             <div class="card p-6 border-l-4 border-green-500">
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">3. 智能选型推荐 (参考 AH 系列)</h3>
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">
+                    <i class="fa-solid fa-check-circle mr-2"></i> 智能选型推荐
+                </h3>
                 
                 <div id="pump-recommendation" class="hidden">
-                    <div class="flex flex-col md:flex-row gap-4 items-start">
-                        <div class="bg-blue-50 p-4 rounded-lg flex-1 w-full">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <div class="text-sm text-blue-500 font-bold mb-1">首选型号</div>
-                                    <div class="text-3xl font-bold text-slate-800" id="rec_model">8/6 E-AH</div>
+                    <div class="flex flex-col md:flex-row gap-6 items-stretch">
+                        
+                        <!-- 选型结果文本 -->
+                        <div class="flex-1 w-full flex flex-col justify-between">
+                            <div class="bg-gradient-to-br from-blue-50 to-white p-5 rounded-lg border border-blue-100 shadow-sm mb-4">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div class="text-xs text-blue-500 font-bold uppercase mb-1">Recommended Model</div>
+                                        <div class="text-3xl font-bold text-slate-800 tracking-tight" id="rec_model">8/6 E-AH</div>
+                                        <div class="text-sm text-slate-500" id="rec_series_desc">重型卧式渣浆泵</div>
+                                    </div>
+                                    <span class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">Best Match</span>
                                 </div>
-                                <i class="fa-solid fa-circle-check text-2xl text-green-500"></i>
+                                <div class="mt-4 space-y-2 text-sm text-slate-700">
+                                    <div class="flex justify-between border-b border-blue-100 pb-1">
+                                        <span>流量范围:</span>
+                                        <span id="rec_range" class="font-mono font-bold">100-300 m³/h</span>
+                                    </div>
+                                    <div class="flex justify-between border-b border-blue-100 pb-1">
+                                        <span>允许最大扬程:</span>
+                                        <span id="rec_maxh" class="font-mono font-bold">65 m</span>
+                                    </div>
+                                    <div class="flex justify-between pt-1">
+                                        <span>当前负荷率:</span>
+                                        <span id="rec_load" class="font-bold text-blue-700">85%</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mt-3 space-y-1 text-sm text-slate-600">
-                                <p>流量范围: <span id="rec_range" class="font-mono">100-300</span> m³/h</p>
-                                <p>最高扬程: <span id="rec_maxh" class="font-mono">65</span> m</p>
-                                <p>当前负荷率: <span id="rec_load" class="font-bold">85%</span> (接近 BEP)</p>
+                            
+                            <div class="text-sm bg-slate-50 p-4 rounded-lg">
+                                <p class="font-bold text-slate-700 mb-2 border-b border-slate-200 pb-1">备选方案：</p>
+                                <ul id="alt_pumps" class="space-y-2 text-slate-600 list-disc pl-4 text-xs">
+                                    <!-- JS填充 -->
+                                </ul>
                             </div>
                         </div>
-                        
-                        <div class="flex-1 w-full text-sm">
-                            <p class="font-bold text-slate-700 mb-2">备选建议：</p>
-                            <ul id="alt_pumps" class="space-y-2 text-slate-600 list-disc pl-4">
-                                <!-- JS填充 -->
-                            </ul>
+
+                        <!-- 尺寸示意图 -->
+                        <div class="w-full md:w-72 bg-white rounded-lg border border-slate-200 p-4 flex flex-col">
+                            <h4 class="text-xs font-bold text-slate-500 mb-3 w-full text-left">外形尺寸参考 (mm)</h4>
+                            
+                            <!-- 动态SVG示意图容器 -->
+                            <div class="flex-grow flex items-center justify-center mb-4 bg-slate-50 rounded border border-slate-100 p-2">
+                                <div id="pump_svg_container">
+                                    <!-- SVG will be injected here -->
+                                </div>
+                            </div>
+
+                            <table class="w-full text-xs text-slate-600 pump-dims-table">
+                                <tr>
+                                    <td>长 (L)</td>
+                                    <td class="text-right font-mono font-bold" id="dim_l">-</td>
+                                </tr>
+                                <tr>
+                                    <td>宽 (W)</td>
+                                    <td class="text-right font-mono font-bold" id="dim_w">-</td>
+                                </tr>
+                                <tr>
+                                    <td>高 (H)</td>
+                                    <td class="text-right font-mono font-bold" id="dim_h">-</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" class="text-[10px] text-slate-400 pt-2 text-center italic">*仅供布局参考，具体见样本Sheet 2/5</td>
+                                </tr>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <div id="pump-error" class="hidden text-center py-6 text-slate-400">
-                    <i class="fa-solid fa-circle-exclamation text-4xl mb-2 text-yellow-400"></i>
-                    <p>未找到完美匹配的标准泵型，请检查参数或咨询厂家定制。</p>
+                <div id="pump-error" class="hidden text-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                    <i class="fa-solid fa-triangle-exclamation text-4xl mb-3 text-yellow-500"></i>
+                    <p class="font-medium text-slate-600">未找到匹配的标准泵型</p>
+                    <p class="text-sm mt-1">当前参数超出标准库范围，建议咨询厂家定制或串联使用。</p>
                 </div>
                 
-                <div id="pump-placeholder" class="text-center py-8 text-slate-400">
-                    <i class="fa-solid fa-pump-medical text-4xl mb-2 opacity-30"></i>
-                    <p>输入参数并点击计算以获取推荐型号</p>
+                <div id="pump-placeholder" class="text-center py-12 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                    <i class="fa-solid fa-pump-medical text-5xl mb-3 opacity-20 text-blue-500"></i>
+                    <p>请输入工况参数并点击“开始计算”</p>
                 </div>
 
             </div>
             
             <div class="text-xs text-slate-400 text-center mt-4 no-print">
-                <p>免责声明：本工具仅供初步选型估算，不考虑管路损失曲线交点。最终选型请以厂家提供的性能曲线图为准。</p>
+                <p>免责声明：本工具依据三联泵业 AH/HH/SP 系列样本数据（Sheet 1/4/5）开发。最终选型请以厂家提供的详细性能曲线图为准。</p>
             </div>
 
         </div>
     </div>
 
     <script>
-        // 模拟渣浆泵数据库 (基于常见的通用重型渣浆泵参数范围)
-        // MinQ/MaxQ 为推荐运行区间, MaxH 为单级大概上限
+        // === 数据库构建：基于上传的PDF数据 ===
+        // AH/HH: 卧式 | SP: 立式
+        // 数据来源: Sheet 1 (AH/HH性能), Sheet 2 (AH/HH尺寸), Sheet 4 (SP性能), Sheet 5 (SP尺寸)
+        
         const pumpDatabase = [
-            { model: "1.5/1 B-AH", minQ: 3.6, maxQ: 20, maxH: 60, bep: 12 },
-            { model: "2/1.5 B-AH", minQ: 10, maxQ: 40, maxH: 60, bep: 25 },
-            { model: "3/2 C-AH",   minQ: 25, maxQ: 75, maxH: 60, bep: 50 },
-            { model: "4/3 C-AH",   minQ: 50, maxQ: 130, maxH: 60, bep: 90 },
-            { model: "4/3 D-AH",   minQ: 60, maxQ: 160, maxH: 75, bep: 110 },
-            { model: "6/4 D-AH",   minQ: 100, maxQ: 280, maxH: 65, bep: 200 },
-            { model: "6/4 E-AH",   minQ: 120, maxQ: 320, maxH: 85, bep: 240 },
-            { model: "8/6 E-AH",   minQ: 200, maxQ: 550, maxH: 65, bep: 380 },
-            { model: "8/6 F-AH",   minQ: 250, maxQ: 650, maxH: 85, bep: 450 },
-            { model: "10/8 F-AH",  minQ: 400, maxQ: 900, maxH: 65, bep: 700 },
-            { model: "10/8 ST-AH", minQ: 500, maxQ: 1100, maxH: 80, bep: 850 },
-            { model: "12/10 ST-AH",minQ: 800, maxQ: 1600, maxH: 70, bep: 1200 },
-            { model: "14/12 ST-AH",minQ: 1200, maxQ: 2200, maxH: 65, bep: 1700 }
+            // --- AH 系列 (卧式) ---
+            // 流量范围根据样本中该型号的最小Q和最大Q设定，扬程为最大扬程
+            { type: "horizontal", series: "AH", model: "40/25B-AH", minQ: 3.6, maxQ: 19.44, maxH: 60, dims: {l: 583, w: 340, h: 368} },
+            { type: "horizontal", series: "AH", model: "50/40B-AH", minQ: 6.84, maxQ: 48.6, maxH: 69, dims: {l: 592, w: 381, h: 371} },
+            { type: "horizontal", series: "AH", model: "75/50C-AH", minQ: 21.6, maxQ: 88.56, maxH: 62.3, dims: {l: 768, w: 441, h: 464} },
+            { type: "horizontal", series: "AH", model: "100/75C-AH", minQ: 32.4, maxQ: 154.8, maxH: 60, dims: {l: 843, w: 527, h: 524} }, // 尺寸取K2
+            { type: "horizontal", series: "AH", model: "100/75D-AH", minQ: 39.7, maxQ: 196.3, maxH: 61, dims: {l: 943, w: 592, h: 538} }, // 尺寸取K3
+            { type: "horizontal", series: "AH", model: "150/100D-AH", minQ: 83.6, maxQ: 292, maxH: 65, dims: {l: 1147, w: 343, h: 510} }, // 尺寸有多种，取典型
+            { type: "horizontal", series: "AH", model: "150/100E-AH", minQ: 115, maxQ: 393, maxH: 65, dims: {l: 1180, w: 800, h: 797} },
+            { type: "horizontal", series: "AH", model: "200/150E-AH", minQ: 126, maxQ: 648, maxH: 65, dims: {l: 1302, w: 920, h: 1005} }, // 尺寸取K5
+            { type: "horizontal", series: "AH", model: "200/150R-AH", minQ: 208, maxQ: 720, maxH: 65, dims: {l: 1448, w: 557, h: 500} }, // 尺寸基于Sheet 2
+            { type: "horizontal", series: "AH", model: "250/200ST-AH", minQ: 216, maxQ: 1051, maxH: 65, dims: {l: 1748, w: 1290, h: 1283} },
+            { type: "horizontal", series: "AH", model: "300/250ST-AH", minQ: 316, maxQ: 1620, maxH: 60, dims: {l: 1816, w: 1445, h: 1390} },
+            { type: "horizontal", series: "AH", model: "350/300ST-AH", minQ: 540, maxQ: 2455, maxH: 60, dims: {l: 1873, w: 1780, h: 1710} },
+
+            // --- HH 系列 (高扬程) ---
+            { type: "horizontal", series: "HH", model: "40/25C-HH", minQ: 5.04, maxQ: 18, maxH: 92, dims: {l: 759, w: 518, h: 509} },
+            { type: "horizontal", series: "HH", model: "75/50D-HH", minQ: 18, maxQ: 88, maxH: 87, dims: {l: 986, w: 749, h: 727} },
+            { type: "horizontal", series: "HH", model: "100/80E-HH", minQ: 35, maxQ: 187, maxH: 100, dims: {l: 1240, w: 902, h: 889} },
+            { type: "horizontal", series: "HH", model: "150/100F-HH", minQ: 122, maxQ: 414, maxH: 98, dims: {l: 1556, w: 1207, h: 1156} },
+
+            // --- SP 系列 (立式液下) ---
+            // 尺寸来源 Sheet 5. 长(Length)=A+C, 宽(Width)=B, 高(Height)=G(泵高)+电机高度(估算). 
+            // 这里为了简化，采用Sheet 5 "Pump Outline Dimensions" 表中的 L, W, H.
+            { type: "vertical", series: "SP", model: "40PV-SP", minQ: 7.2, maxQ: 39.6, maxH: 28.5, dims: {l: 535, w: 500, h: 1415} },
+            { type: "vertical", series: "SP", model: "50QV-SP", minQ: 9.93, maxQ: 54, maxH: 38.6, dims: {l: 740, w: 680, h: 1866} }, // H取最大值参考
+            { type: "vertical", series: "SP", model: "65QV-SP", minQ: 19.08, maxQ: 102.6, maxH: 40.3, dims: {l: 740, w: 680, h: 1866} },
+            { type: "vertical", series: "SP", model: "80RV-SP", minQ: 38.21, maxQ: 203, maxH: 44, dims: {l: 1038, w: 870, h: 2400} },
+            { type: "vertical", series: "SP", model: "100RV-SP", minQ: 50.4, maxQ: 259.2, maxH: 45, dims: {l: 1038, w: 870, h: 2400} },
+            { type: "vertical", series: "SP", model: "150SV-SP", minQ: 165.6, maxQ: 576, maxH: 45, dims: {l: 1220, w: 1100, h: 3000} },
+            { type: "vertical", series: "SP", model: "200SV-SP", minQ: 183.6, maxQ: 824.4, maxH: 40, dims: {l: 1405, w: 1200, h: 2978} },
+            { type: "vertical", series: "SP", model: "200RV-SP", minQ: 219.6, maxQ: 705.6, maxH: 40, dims: {l: 1405, w: 1200, h: 2978} },
         ];
 
+        // --- SVG 模板 ---
+        const svgHorizontal = `
+            <svg width="100%" height="120" viewBox="0 0 140 100">
+                <rect x="10" y="80" width="100" height="10" fill="#94a3b8" />
+                <rect x="60" y="50" width="40" height="30" fill="#cbd5e1" stroke="#64748b" stroke-width="1"/>
+                <circle cx="40" cy="55" r="25" fill="#3b82f6" stroke="#1d4ed8" stroke-width="2" />
+                <rect x="35" y="15" width="10" height="20" fill="#3b82f6" stroke="#1d4ed8" stroke-width="2" />
+                <line x1="62" y1="65" x2="95" y2="65" stroke="#475569" stroke-width="3" />
+                <line x1="10" y1="95" x2="110" y2="95" stroke="#000" stroke-width="0.5" />
+                <text x="60" y="105" font-size="6" text-anchor="middle" fill="#000">L (Length)</text>
+                <line x1="5" y1="85" x2="5" y2="25" stroke="#000" stroke-width="0.5" />
+                <text x="2" y="55" font-size="6" text-anchor="middle" fill="#000" transform="rotate(-90 2,55)">H (Height)</text>
+            </svg>
+        `;
+
+        const svgVertical = `
+            <svg width="100%" height="160" viewBox="0 0 100 160">
+                <!-- Motor -->
+                <rect x="35" y="10" width="30" height="40" fill="#cbd5e1" stroke="#64748b" />
+                <!-- Shaft Column -->
+                <rect x="45" y="50" width="10" height="80" fill="#94a3b8" stroke="#475569" />
+                <!-- Mounting Plate -->
+                <rect x="20" y="60" width="60" height="5" fill="#64748b" />
+                <!-- Pump Body -->
+                <circle cx="50" cy="140" r="15" fill="#3b82f6" stroke="#1d4ed8" />
+                <!-- Discharge Pipe -->
+                <path d="M65 140 L65 40 L85 40" fill="none" stroke="#3b82f6" stroke-width="3" />
+                
+                <!-- Dimensions -->
+                <line x1="10" y1="10" x2="10" y2="155" stroke="#000" stroke-width="0.5" />
+                <text x="5" y="80" font-size="6" text-anchor="middle" fill="#000" transform="rotate(-90 5,80)">H (Height)</text>
+                
+                <line x1="20" y1="160" x2="80" y2="160" stroke="#000" stroke-width="0.5" />
+                <text x="50" y="168" font-size="6" text-anchor="middle" fill="#000">W (Width)</text>
+            </svg>
+        `;
+
+        // 初始化
+        window.onload = function() {
+            updatePumpImage();
+        }
+
+        function updatePumpImage() {
+            const type = document.getElementById('pump_type').value;
+            const container = document.getElementById('pump_svg_container');
+            if (type === 'horizontal') {
+                container.innerHTML = svgHorizontal;
+            } else {
+                container.innerHTML = svgVertical;
+            }
+            // Clear previous results if needed or keep them
+        }
+        
+        function resetForm() {
+            document.getElementById('calcForm').reset();
+            document.getElementById('pump-recommendation').classList.add('hidden');
+            document.getElementById('pump-error').classList.add('hidden');
+            document.getElementById('pump-placeholder').classList.remove('hidden');
+            
+            // Clear result texts
+            const results = document.querySelectorAll('.result-value');
+            results.forEach(el => el.innerText = '-');
+            document.getElementById('res_p_water').innerText = '- kW';
+            document.getElementById('res_p_shaft').innerText = '- kW';
+            document.getElementById('res_p_motor').innerText = '-';
+        }
+
         function loadDemo() {
-            document.getElementById('flow').value = 320;
+            document.getElementById('pump_type').value = 'horizontal';
+            updatePumpImage();
+            document.getElementById('solid_tph').value = 160;
             document.getElementById('head').value = 45;
             document.getElementById('sg_solid').value = 2.85;
             document.getElementById('conc_w').value = 40;
-            document.getElementById('efficiency').value = 70;
+            document.getElementById('efficiency').value = 65;
             calculatePump();
         }
 
         function calculatePump() {
             // 1. 获取输入
-            const Q = parseFloat(document.getElementById('flow').value);
+            const type = document.getElementById('pump_type').value;
+            const SolidTph = parseFloat(document.getElementById('solid_tph').value);
             const H = parseFloat(document.getElementById('head').value);
-            const Ss = parseFloat(document.getElementById('sg_solid').value); // 固体比重
-            const Cw = parseFloat(document.getElementById('conc_w').value);   // 重量浓度
-            const Eta = parseFloat(document.getElementById('efficiency').value) / 100; // 效率
-            const SF = parseFloat(document.getElementById('sf').value);       // 服务系数
+            const Ss = parseFloat(document.getElementById('sg_solid').value);
+            const Cw = parseFloat(document.getElementById('conc_w').value);
+            const Eta = parseFloat(document.getElementById('efficiency').value) / 100;
+            const SF = parseFloat(document.getElementById('sf').value);
 
-            if (!Q || !H || !Ss || !Cw) {
+            if (!SolidTph || !H || !Ss || !Cw) {
                 alert("请填写所有必填参数！");
                 return;
             }
 
             // 2. 物理性质计算
-            // 矿浆比重 Sm = 100 / ( (Cw/Ss) + (100-Cw)/1 )  假设水比重为1
-            const Sm = 100 / ( (Cw / Ss) + (100 - Cw) );
-            
-            // 体积浓度 Cv = Sm * Cw / Ss
-            const Cv = (Sm * Cw) / Ss;
-
-            // 产量计算
-            const TotalTph = Q * Sm;
-            const SolidTph = TotalTph * (Cw / 100);
+            const Sm = 100 / ( (Cw / Ss) + (100 - Cw) ); // 矿浆比重
+            const TotalTph = SolidTph / (Cw / 100);      // 总矿浆重量
+            const Q = TotalTph / Sm;                     // 矿浆体积流量 m3/h
+            const Cv = (Sm * Cw) / Ss;                   // 体积浓度
 
             // 3. 功率计算
-            // 轴功率 P_shaft = (Q * H * Sm) / (367 * Efficiency)
-            // 367 是常数 (3600*1000 / (9.81*1000) 的简化倒数相关) 用于 m3/h -> kW
-            const P_water = (Q * H * 1.0) / (367 * Eta); // 假设清水的轴功率
-            const P_shaft = (Q * H * Sm) / (367 * Eta);  // 矿浆轴功率
-            const P_motor = P_shaft * SF;                // 推荐电机功率
+            const P_water = (Q * H * 1.0) / (367 * Eta);
+            const P_shaft = (Q * H * Sm) / (367 * Eta);
+            const P_motor = P_shaft * SF;
 
             // 4. 更新界面显示 (物理参数)
+            document.getElementById('res_flow_slurry').innerText = Q.toFixed(1);
             document.getElementById('res_sg_slurry').innerText = Sm.toFixed(3);
             document.getElementById('res_cv').innerText = Cv.toFixed(2);
-            document.getElementById('res_tph_solid').innerText = SolidTph.toFixed(1);
             document.getElementById('res_tph_total').innerText = TotalTph.toFixed(1);
 
             document.getElementById('res_p_water').innerText = P_water.toFixed(1) + " kW";
             document.getElementById('res_p_shaft').innerText = P_shaft.toFixed(1) + " kW";
-            document.getElementById('res_p_motor').innerText = Math.ceil(P_motor) + " kW"; // 电机向上取整
+            document.getElementById('res_p_motor').innerText = Math.ceil(P_motor);
             document.getElementById('display_sf').innerText = SF;
 
             // 5. 泵选型逻辑
-            selectPump(Q, H);
+            selectPump(Q, H, type);
         }
 
-        function selectPump(Q, H) {
+        function selectPump(Q, H, type) {
             const container = document.getElementById('pump-recommendation');
             const errorDiv = document.getElementById('pump-error');
             const placeholder = document.getElementById('pump-placeholder');
             
             placeholder.classList.add('hidden');
 
-            // 筛选满足流量和扬程要求的泵
-            // 简单逻辑：流量在 Min 和 Max 之间，且泵能提供的最大扬程 > 需要扬程
+            // 筛选条件：
+            // 1. 类型匹配 (Horizontal/Vertical)
+            // 2. 流量 Q 在 minQ 和 maxQ 之间 (或者稍微放宽一点 minQ，因为泵可以降速)
+            // 3. 泵的最大扬程 > H (注意：对于立式泵，高扬程可能需要多级或高速，这里简化判断)
+            
             let candidates = pumpDatabase.filter(p => 
-                Q >= p.minQ && 
+                p.type === type &&
                 Q <= p.maxQ && 
                 p.maxH >= H
             );
+
+            // 如果没有直接匹配的，尝试放宽最大流量限制 (假设可以选更大的泵低速运行)
+            if (candidates.length === 0) {
+                 candidates = pumpDatabase.filter(p => 
+                    p.type === type &&
+                    p.maxQ > Q && // 只要最大流量大于需求
+                    p.maxH >= H
+                );
+            }
 
             if (candidates.length === 0) {
                 container.classList.add('hidden');
@@ -306,10 +481,12 @@
                 return;
             }
 
-            // 排序逻辑：寻找 BEP (最佳效率点) 最接近输入流量 Q 的泵
-            // 距离 = abs(泵BEP - Q)
-            candidates.sort((a, b) => Math.abs(a.bep - Q) - Math.abs(b.bep - Q));
+            // 排序逻辑：
+            // 优先选择 Q 接近泵中间流量的 (假设中间流量 = maxQ * 0.6)
+            // 或者：选择 maxQ 刚好大于 Q 的最小那个泵 (经济性)
+            candidates.sort((a, b) => a.maxQ - b.maxQ);
 
+            // 获取最佳匹配 (最小的满足条件的泵)
             const bestPump = candidates[0];
             const loadRate = (Q / bestPump.maxQ * 100).toFixed(0);
             
@@ -318,31 +495,42 @@
             errorDiv.classList.add('hidden');
 
             document.getElementById('rec_model').innerText = bestPump.model;
-            document.getElementById('rec_range').innerText = `${bestPump.minQ} - ${bestPump.maxQ}`;
-            document.getElementById('rec_maxh').innerText = bestPump.maxH;
-            
-            // 计算简单的负荷状态评价
-            let loadText = loadRate + "%";
-            if(Math.abs(bestPump.bep - Q) / bestPump.bep < 0.2) {
-                loadText += " (优选区间)";
-            } else if (Q > bestPump.bep) {
-                loadText += " (偏大流量)";
+            document.getElementById('rec_series_desc').innerText = 
+                bestPump.series === 'AH' ? 'AH系列 重型卧式渣浆泵' : 
+                bestPump.series === 'HH' ? 'HH系列 高扬程渣浆泵' : 
+                'SP系列 立式液下渣浆泵';
+                
+            document.getElementById('rec_range').innerText = `${bestPump.minQ} - ${bestPump.maxQ} m³/h`;
+            document.getElementById('rec_maxh').innerText = `${bestPump.maxH} m`;
+            document.getElementById('rec_load').innerText = `${loadRate}%`;
+
+            // 更新尺寸数据
+            if (bestPump.dims) {
+                document.getElementById('dim_l').innerText = bestPump.dims.l;
+                document.getElementById('dim_w').innerText = bestPump.dims.w;
+                document.getElementById('dim_h').innerText = bestPump.dims.h;
             } else {
-                loadText += " (偏小流量)";
+                document.getElementById('dim_l').innerText = '-';
+                document.getElementById('dim_w').innerText = '-';
+                document.getElementById('dim_h').innerText = '-';
             }
-            document.getElementById('rec_load').innerText = loadText;
 
             // 显示备选
             const altList = document.getElementById('alt_pumps');
             altList.innerHTML = '';
-            if (candidates.length > 1) {
-                candidates.slice(1, 4).forEach(p => {
+            
+            // 获取后续2个作为备选
+            const altCandidates = candidates.slice(1, 3);
+            
+            if (altCandidates.length > 0) {
+                altCandidates.forEach(p => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<b>${p.model}</b>: 范围 ${p.minQ}-${p.maxQ} m³/h (偏离BEP ${(Math.abs(p.bep - Q)/Q*100).toFixed(0)}%)`;
+                    const lr = (Q / p.maxQ * 100).toFixed(0);
+                    li.innerHTML = `<b>${p.model}</b>: 流量上限 ${p.maxQ} m³/h, 负荷率 ${lr}%`;
                     altList.appendChild(li);
                 });
             } else {
-                altList.innerHTML = '<li>无其他合适备选型号</li>';
+                altList.innerHTML = '<li>无其他规格接近的备选型号</li>';
             }
         }
     </script>
