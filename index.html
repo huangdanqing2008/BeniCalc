@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 HTML 文件目录</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f6f8fa; }
+        h1 { color: #24292e; border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }
+        #file-list { list-style: none; padding: 0; background: white; border-radius: 6px; border: 1px solid #e1e4e8; }
+        #file-list li { border-bottom: 1px solid #e1e4e8; }
+        #file-list li:last-child { border-bottom: none; }
+        #file-list a { display: block; padding: 15px 20px; text-decoration: none; color: #0366d6; transition: background 0.2s; }
+        #file-list a:hover { background-color: #f1f8ff; text-decoration: underline; }
+        .loading { color: #666; font-style: italic; }
+        .error { color: #d73a49; background: #ffdce0; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <h1>📄 文件目录</h1>
+    <ul id="file-list">
+        <li class="loading">正在加载文件列表...</li>
+    </ul>
+
+    <script>
+        // 自动获取当前的用户名和仓库名
+        // 假设 URL 是 https://username.github.io/repo-name/
+        const pathParts = window.location.pathname.split('/').filter(part => part.length > 0);
+        
+        // GitHub Pages 的路径通常是 /repo-name/，如果是根域名则是空
+        // 注意：如果你绑定了自定义域名，这段逻辑可能需要手动指定 user 和 repo
+        const repoName = pathParts[0]; 
+        const userName = window.location.hostname.split('.')[0];
+
+        // 如果无法自动获取（比如在本地测试），请手动修改下面两行：
+        // const userName = "你的GitHub用户名";
+        // const repoName = "你的仓库名";
+
+        async function fetchFileList() {
+            const listElement = document.getElementById('file-list');
+            
+            // 构建 GitHub API 地址
+            const apiUrl = `https://api.github.com/repos/${userName}/${repoName}/contents/`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`API 请求失败: ${response.status}`);
+                
+                const data = await response.json();
+                
+                // 清空加载提示
+                listElement.innerHTML = '';
+
+                // 筛选出 html 文件，并排除 index.html 本身
+                const htmlFiles = data.filter(file => 
+                    file.name.endsWith('.html') && 
+                    file.name !== 'index.html'
+                );
+
+                if (htmlFiles.length === 0) {
+                    listElement.innerHTML = '<li style="padding:15px">暂无其他 HTML 文件</li>';
+                    return;
+                }
+
+                // 生成列表
+                htmlFiles.forEach(file => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    a.href = file.name; // 相对路径跳转
+                    a.textContent = file.name;
+                    li.appendChild(a);
+                    listElement.appendChild(li);
+                });
+
+            } catch (error) {
+                console.error(error);
+                listElement.innerHTML = `<div class="error">加载失败，请检查仓库名称是否正确，或 API 调用次数是否超限。<br>错误信息: ${error.message}</div>`;
+            }
+        }
+
+        // 执行函数
+        if (window.location.hostname === 'localhost' || window.location.protocol === 'file:') {
+             document.getElementById('file-list').innerHTML = '<div class="error">请在 GitHub Pages 环境下运行此页面，本地运行无法调用 API。</div>';
+        } else {
+            fetchFileList();
+        }
+    </script>
+</body>
+</html>
