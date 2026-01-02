@@ -187,7 +187,7 @@
                             <div class="text-lg text-green-600 font-semibold">kW</div>
                         </div>
                         <div class="mt-2 text-xs bg-green-100 text-green-800 inline-block px-2 py-1 rounded">
-                            已含富余系数 SF = <span id="display_sf">1.2</span>
+                            <i class="fa-solid fa-check mr-1"></i> 标准系列等级 (SF=<span id="display_sf">1.2</span>)
                         </div>
                     </div>
                 </div>
@@ -329,6 +329,13 @@
             { type: "vertical", series: "SP", model: "200RV-SP", minQ: 219.6, maxQ: 705.6, maxH: 40, dims: {l: 1405, w: 1200, h: 2978} },
         ];
 
+        // --- 标准电机功率序列 (kW) ---
+        // 依据样本及常见 IEC 标准
+        const STANDARD_MOTOR_POWERS = [
+            0.55, 0.75, 1.1, 1.5, 2.2, 3, 4, 5.5, 7.5, 11, 15, 18.5, 22, 30, 37, 45, 55, 
+            75, 90, 110, 132, 160, 185, 200, 220, 250, 280, 315, 355, 400, 450, 500, 560, 630, 710, 800, 900, 1000
+        ];
+
         // --- SVG 模板 ---
         const svgHorizontal = `
             <svg width="100%" height="120" viewBox="0 0 140 100">
@@ -431,7 +438,15 @@
             // 3. 功率计算
             const P_water = (Q * H * 1.0) / (367 * Eta);
             const P_shaft = (Q * H * Sm) / (367 * Eta);
-            const P_motor = P_shaft * SF;
+            
+            // 计算电机功率 (使用标准系列)
+            const P_required = P_shaft * SF;
+            let P_motor = STANDARD_MOTOR_POWERS.find(p => p >= P_required);
+            
+            // 如果超出标准库范围，使用向上取整
+            if (!P_motor) {
+                P_motor = Math.ceil(P_required);
+            }
 
             // 4. 更新界面显示 (物理参数)
             document.getElementById('res_flow_slurry').innerText = Q.toFixed(1);
@@ -441,7 +456,7 @@
 
             document.getElementById('res_p_water').innerText = P_water.toFixed(1) + " kW";
             document.getElementById('res_p_shaft').innerText = P_shaft.toFixed(1) + " kW";
-            document.getElementById('res_p_motor').innerText = Math.ceil(P_motor);
+            document.getElementById('res_p_motor').innerText = P_motor;
             document.getElementById('display_sf').innerText = SF;
 
             // 5. 泵选型逻辑
