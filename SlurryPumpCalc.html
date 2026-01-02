@@ -36,7 +36,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold tracking-wide">SlurryMaster Pro</h1>
-                    <p class="text-xs text-slate-400">基于三联泵业 AH/HH/SP 系列数据</p>
+                    <p class="text-xs text-slate-400">基于三联泵业 AH/HH/SP 系列样本数据</p>
                 </div>
             </div>
             <div class="flex gap-2">
@@ -187,7 +187,10 @@
                             <div class="text-lg text-green-600 font-semibold">kW</div>
                         </div>
                         <div class="mt-2 text-xs bg-green-100 text-green-800 inline-block px-2 py-1 rounded">
-                            <i class="fa-solid fa-check mr-1"></i> 标准系列等级 (SF=<span id="display_sf">1.2</span>)
+                            <i class="fa-solid fa-check mr-1"></i> 选自样本标准电机系列 (SF=<span id="display_sf">1.2</span>)
+                        </div>
+                        <div id="motor-warning" class="hidden mt-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> 注意：功率超出样本上限
                         </div>
                     </div>
                 </div>
@@ -225,6 +228,10 @@
                                     <div class="flex justify-between pt-1">
                                         <span>当前负荷率:</span>
                                         <span id="rec_load" class="font-bold text-blue-700">85%</span>
+                                    </div>
+                                    <div class="flex justify-between pt-1 border-t border-blue-100 mt-2">
+                                        <span>样本支持电机:</span>
+                                        <span id="rec_motor_list" class="font-mono text-xs text-slate-500 text-right w-1/2"></span>
                                     </div>
                                 </div>
                             </div>
@@ -292,48 +299,134 @@
     <script>
         // === 数据库构建：基于上传的PDF数据 ===
         // AH/HH: 卧式 | SP: 立式
-        // 数据来源: Sheet 1 (AH/HH性能), Sheet 2 (AH/HH尺寸), Sheet 4 (SP性能), Sheet 5 (SP尺寸)
+        // motorList: 依据样本中“配带电机”列 (Power kw) 录入
         
         const pumpDatabase = [
             // --- AH 系列 (卧式) ---
-            // 流量范围根据样本中该型号的最小Q和最大Q设定，扬程为最大扬程
-            { type: "horizontal", series: "AH", model: "40/25B-AH", minQ: 3.6, maxQ: 19.44, maxH: 60, dims: {l: 583, w: 340, h: 368} },
-            { type: "horizontal", series: "AH", model: "50/40B-AH", minQ: 6.84, maxQ: 48.6, maxH: 69, dims: {l: 592, w: 381, h: 371} },
-            { type: "horizontal", series: "AH", model: "75/50C-AH", minQ: 21.6, maxQ: 88.56, maxH: 62.3, dims: {l: 768, w: 441, h: 464} },
-            { type: "horizontal", series: "AH", model: "100/75C-AH", minQ: 32.4, maxQ: 154.8, maxH: 60, dims: {l: 843, w: 527, h: 524} }, // 尺寸取K2
-            { type: "horizontal", series: "AH", model: "100/75D-AH", minQ: 39.7, maxQ: 196.3, maxH: 61, dims: {l: 943, w: 592, h: 538} }, // 尺寸取K3
-            { type: "horizontal", series: "AH", model: "150/100D-AH", minQ: 83.6, maxQ: 292, maxH: 65, dims: {l: 1147, w: 343, h: 510} }, // 尺寸有多种，取典型
-            { type: "horizontal", series: "AH", model: "150/100E-AH", minQ: 115, maxQ: 393, maxH: 65, dims: {l: 1180, w: 800, h: 797} },
-            { type: "horizontal", series: "AH", model: "200/150E-AH", minQ: 126, maxQ: 648, maxH: 65, dims: {l: 1302, w: 920, h: 1005} }, // 尺寸取K5
-            { type: "horizontal", series: "AH", model: "200/150R-AH", minQ: 208, maxQ: 720, maxH: 65, dims: {l: 1448, w: 557, h: 500} }, // 尺寸基于Sheet 2
-            { type: "horizontal", series: "AH", model: "250/200ST-AH", minQ: 216, maxQ: 1051, maxH: 65, dims: {l: 1748, w: 1290, h: 1283} },
-            { type: "horizontal", series: "AH", model: "300/250ST-AH", minQ: 316, maxQ: 1620, maxH: 60, dims: {l: 1816, w: 1445, h: 1390} },
-            { type: "horizontal", series: "AH", model: "350/300ST-AH", minQ: 540, maxQ: 2455, maxH: 60, dims: {l: 1873, w: 1780, h: 1710} },
+            { 
+                type: "horizontal", series: "AH", model: "40/25B-AH", minQ: 3.6, maxQ: 19.44, maxH: 60, 
+                dims: {l: 583, w: 340, h: 368},
+                motorList: [2.2, 3, 4, 5.5, 7.5, 11, 15] 
+            },
+            { 
+                type: "horizontal", series: "AH", model: "50/40B-AH", minQ: 6.84, maxQ: 48.6, maxH: 69, 
+                dims: {l: 592, w: 381, h: 371},
+                motorList: [2.2, 3, 4, 5.5, 7.5, 11, 15]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "75/50C-AH", minQ: 21.6, maxQ: 88.56, maxH: 62.3, 
+                dims: {l: 768, w: 441, h: 464},
+                motorList: [4, 5.5, 7.5, 11, 15, 18.5, 22, 30]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "100/75C-AH", minQ: 32.4, maxQ: 154.8, maxH: 60, 
+                dims: {l: 843, w: 527, h: 524},
+                motorList: [5.5, 7.5, 11, 15, 18.5, 22, 30]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "100/75D-AH", minQ: 39.7, maxQ: 196.3, maxH: 61, 
+                dims: {l: 943, w: 592, h: 538},
+                motorList: [5.5, 7.5, 11, 15, 18.5, 22, 30, 37, 45, 55]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "150/100D-AH", minQ: 83.6, maxQ: 292, maxH: 65, 
+                dims: {l: 1147, w: 343, h: 510},
+                motorList: [15, 18.5, 22, 30, 37, 45, 55]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "150/100E-AH", minQ: 115, maxQ: 393, maxH: 65, 
+                dims: {l: 1180, w: 800, h: 797},
+                motorList: [37, 45, 55, 75, 90, 110]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "200/150E-AH", minQ: 126, maxQ: 648, maxH: 65, 
+                dims: {l: 1302, w: 920, h: 1005},
+                motorList: [18.5, 22, 30, 37, 45, 55, 75, 90, 110]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "200/150R-AH", minQ: 208, maxQ: 720, maxH: 65, 
+                dims: {l: 1448, w: 557, h: 500},
+                motorList: [110, 132, 160, 185]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "250/200ST-AH", minQ: 216, maxQ: 1051, maxH: 65, 
+                dims: {l: 1748, w: 1290, h: 1283},
+                motorList: [45, 55, 75, 90, 110, 132, 160, 185, 200, 250]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "300/250ST-AH", minQ: 316, maxQ: 1620, maxH: 60, 
+                dims: {l: 1816, w: 1445, h: 1390},
+                motorList: [45, 55, 75, 90, 110, 132, 160, 185, 320, 380]
+            },
+            { 
+                type: "horizontal", series: "AH", model: "350/300ST-AH", minQ: 540, maxQ: 2455, maxH: 60, 
+                dims: {l: 1873, w: 1780, h: 1710},
+                motorList: [75, 90, 110, 132, 160, 280, 330, 480]
+            },
 
             // --- HH 系列 (高扬程) ---
-            { type: "horizontal", series: "HH", model: "40/25C-HH", minQ: 5.04, maxQ: 18, maxH: 92, dims: {l: 759, w: 518, h: 509} },
-            { type: "horizontal", series: "HH", model: "75/50D-HH", minQ: 18, maxQ: 88, maxH: 87, dims: {l: 986, w: 749, h: 727} },
-            { type: "horizontal", series: "HH", model: "100/80E-HH", minQ: 35, maxQ: 187, maxH: 100, dims: {l: 1240, w: 902, h: 889} },
-            { type: "horizontal", series: "HH", model: "150/100F-HH", minQ: 122, maxQ: 414, maxH: 98, dims: {l: 1556, w: 1207, h: 1156} },
+            { 
+                type: "horizontal", series: "HH", model: "40/25C-HH", minQ: 5.04, maxQ: 18, maxH: 92, 
+                dims: {l: 759, w: 518, h: 509},
+                motorList: [7.5, 11, 15, 18.5, 22, 30]
+            },
+            { 
+                type: "horizontal", series: "HH", model: "75/50D-HH", minQ: 18, maxQ: 88, maxH: 87, 
+                dims: {l: 986, w: 749, h: 727},
+                motorList: [15, 18.5, 22, 30, 37, 45, 55, 75]
+            },
+            { 
+                type: "horizontal", series: "HH", model: "100/80E-HH", minQ: 35, maxQ: 187, maxH: 100, 
+                dims: {l: 1240, w: 902, h: 889},
+                motorList: [18.5, 30, 45, 55, 75, 90, 110]
+            },
+            { 
+                type: "horizontal", series: "HH", model: "150/100F-HH", minQ: 122, maxQ: 414, maxH: 98, 
+                dims: {l: 1556, w: 1207, h: 1156},
+                motorList: [45, 55, 75, 90, 110, 132, 160, 185, 220, 250]
+            },
 
             // --- SP 系列 (立式液下) ---
-            // 尺寸来源 Sheet 5. 长(Length)=A+C, 宽(Width)=B, 高(Height)=G(泵高)+电机高度(估算). 
-            // 这里为了简化，采用Sheet 5 "Pump Outline Dimensions" 表中的 L, W, H.
-            { type: "vertical", series: "SP", model: "40PV-SP", minQ: 7.2, maxQ: 39.6, maxH: 28.5, dims: {l: 535, w: 500, h: 1415} },
-            { type: "vertical", series: "SP", model: "50QV-SP", minQ: 9.93, maxQ: 54, maxH: 38.6, dims: {l: 740, w: 680, h: 1866} }, // H取最大值参考
-            { type: "vertical", series: "SP", model: "65QV-SP", minQ: 19.08, maxQ: 102.6, maxH: 40.3, dims: {l: 740, w: 680, h: 1866} },
-            { type: "vertical", series: "SP", model: "80RV-SP", minQ: 38.21, maxQ: 203, maxH: 44, dims: {l: 1038, w: 870, h: 2400} },
-            { type: "vertical", series: "SP", model: "100RV-SP", minQ: 50.4, maxQ: 259.2, maxH: 45, dims: {l: 1038, w: 870, h: 2400} },
-            { type: "vertical", series: "SP", model: "150SV-SP", minQ: 165.6, maxQ: 576, maxH: 45, dims: {l: 1220, w: 1100, h: 3000} },
-            { type: "vertical", series: "SP", model: "200SV-SP", minQ: 183.6, maxQ: 824.4, maxH: 40, dims: {l: 1405, w: 1200, h: 2978} },
-            { type: "vertical", series: "SP", model: "200RV-SP", minQ: 219.6, maxQ: 705.6, maxH: 40, dims: {l: 1405, w: 1200, h: 2978} },
-        ];
-
-        // --- 标准电机功率序列 (kW) ---
-        // 依据样本及常见 IEC 标准
-        const STANDARD_MOTOR_POWERS = [
-            0.55, 0.75, 1.1, 1.5, 2.2, 3, 4, 5.5, 7.5, 11, 15, 18.5, 22, 30, 37, 45, 55, 
-            75, 90, 110, 132, 160, 185, 200, 220, 250, 280, 315, 355, 400, 450, 500, 560, 630, 710, 800, 900, 1000
+            { 
+                type: "vertical", series: "SP", model: "40PV-SP", minQ: 7.2, maxQ: 39.6, maxH: 28.5, 
+                dims: {l: 535, w: 500, h: 1415},
+                motorList: [1.1, 1.5, 2.2, 3, 4, 5.5, 7.5, 11]
+            },
+            { 
+                type: "vertical", series: "SP", model: "50QV-SP", minQ: 9.93, maxQ: 54, maxH: 38.6, 
+                dims: {l: 740, w: 680, h: 1866},
+                motorList: [2.2, 3, 4, 5.5, 7.5, 11, 15, 18.5, 22]
+            },
+            { 
+                type: "vertical", series: "SP", model: "65QV-SP", minQ: 19.08, maxQ: 102.6, maxH: 40.3, 
+                dims: {l: 740, w: 680, h: 1866},
+                motorList: [2.2, 3, 4, 5.5, 7.5, 11, 15, 18.5, 22]
+            },
+            { 
+                type: "vertical", series: "SP", model: "80RV-SP", minQ: 38.21, maxQ: 203, maxH: 44, 
+                dims: {l: 1038, w: 870, h: 2400},
+                motorList: [5.5, 7.5, 11, 15, 18.5, 22, 30, 37, 45]
+            },
+            { 
+                type: "vertical", series: "SP", model: "100RV-SP", minQ: 50.4, maxQ: 259.2, maxH: 45, 
+                dims: {l: 1038, w: 870, h: 2400},
+                motorList: [4, 5.5, 7.5, 11, 15, 18.5, 22, 30, 37, 45]
+            },
+            { 
+                type: "vertical", series: "SP", model: "150SV-SP", minQ: 165.6, maxQ: 576, maxH: 45, 
+                dims: {l: 1220, w: 1100, h: 3000},
+                motorList: [15, 18.5, 22, 30, 37, 45, 55, 75, 90]
+            },
+            { 
+                type: "vertical", series: "SP", model: "200SV-SP", minQ: 183.6, maxQ: 824.4, maxH: 40, 
+                dims: {l: 1405, w: 1200, h: 2978},
+                motorList: [15, 18.5, 22, 30, 37, 45, 55, 75, 90, 110, 132]
+            },
+            { 
+                type: "vertical", series: "SP", model: "200RV-SP", minQ: 219.6, maxQ: 705.6, maxH: 40, 
+                dims: {l: 1405, w: 1200, h: 2978},
+                motorList: [30, 37, 45, 55, 75, 90]
+            },
         ];
 
         // --- SVG 模板 ---
@@ -394,6 +487,7 @@
             document.getElementById('pump-recommendation').classList.add('hidden');
             document.getElementById('pump-error').classList.add('hidden');
             document.getElementById('pump-placeholder').classList.remove('hidden');
+            document.getElementById('motor-warning').classList.add('hidden');
             
             // Clear result texts
             const results = document.querySelectorAll('.result-value');
@@ -435,20 +529,12 @@
             const Q = TotalTph / Sm;                     // 矿浆体积流量 m3/h
             const Cv = (Sm * Cw) / Ss;                   // 体积浓度
 
-            // 3. 功率计算
+            // 3. 功率计算 (初步)
             const P_water = (Q * H * 1.0) / (367 * Eta);
             const P_shaft = (Q * H * Sm) / (367 * Eta);
-            
-            // 计算电机功率 (使用标准系列)
             const P_required = P_shaft * SF;
-            let P_motor = STANDARD_MOTOR_POWERS.find(p => p >= P_required);
             
-            // 如果超出标准库范围，使用向上取整
-            if (!P_motor) {
-                P_motor = Math.ceil(P_required);
-            }
-
-            // 4. 更新界面显示 (物理参数)
+            // 4. 更新物理参数界面显示
             document.getElementById('res_flow_slurry').innerText = Q.toFixed(1);
             document.getElementById('res_sg_slurry').innerText = Sm.toFixed(3);
             document.getElementById('res_cv').innerText = Cv.toFixed(2);
@@ -456,24 +542,27 @@
 
             document.getElementById('res_p_water').innerText = P_water.toFixed(1) + " kW";
             document.getElementById('res_p_shaft').innerText = P_shaft.toFixed(1) + " kW";
-            document.getElementById('res_p_motor').innerText = P_motor;
+            // 暂时显示需求功率，稍后在 selectPump 中更新为实际选择的电机功率
+            document.getElementById('res_p_motor').innerText = Math.ceil(P_required); 
             document.getElementById('display_sf').innerText = SF;
 
             // 5. 泵选型逻辑
-            selectPump(Q, H, type);
+            selectPump(Q, H, type, P_required);
         }
 
-        function selectPump(Q, H, type) {
+        function selectPump(Q, H, type, P_required) {
             const container = document.getElementById('pump-recommendation');
             const errorDiv = document.getElementById('pump-error');
             const placeholder = document.getElementById('pump-placeholder');
+            const motorWarning = document.getElementById('motor-warning');
             
             placeholder.classList.add('hidden');
+            motorWarning.classList.add('hidden');
 
             // 筛选条件：
             // 1. 类型匹配 (Horizontal/Vertical)
-            // 2. 流量 Q 在 minQ 和 maxQ 之间 (或者稍微放宽一点 minQ，因为泵可以降速)
-            // 3. 泵的最大扬程 > H (注意：对于立式泵，高扬程可能需要多级或高速，这里简化判断)
+            // 2. 流量 Q 在 minQ 和 maxQ 之间
+            // 3. 泵的最大扬程 > H 
             
             let candidates = pumpDatabase.filter(p => 
                 p.type === type &&
@@ -505,6 +594,35 @@
             const bestPump = candidates[0];
             const loadRate = (Q / bestPump.maxQ * 100).toFixed(0);
             
+            // --- 电机选型逻辑 ---
+            let selectedMotor = null;
+            let isMotorOverload = false;
+            
+            if (bestPump.motorList && bestPump.motorList.length > 0) {
+                // 在该泵支持的列表中查找
+                selectedMotor = bestPump.motorList.find(p => p >= P_required);
+                
+                if (!selectedMotor) {
+                    // 如果超出列表最大值
+                    selectedMotor = Math.ceil(P_required);
+                    isMotorOverload = true;
+                    // 显示警告
+                    motorWarning.classList.remove('hidden');
+                    motorWarning.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> 警告: 需求 ${selectedMotor}kW 超过该泵样本最大配置 (${Math.max(...bestPump.motorList)}kW)`;
+                    document.getElementById('res_p_motor').classList.add('text-red-600');
+                    document.getElementById('res_p_motor').classList.remove('text-green-600');
+                } else {
+                    document.getElementById('res_p_motor').classList.add('text-green-600');
+                    document.getElementById('res_p_motor').classList.remove('text-red-600');
+                }
+            } else {
+                // 如果数据库缺失电机列表（理论上不应发生），回退到通用向上取整
+                selectedMotor = Math.ceil(P_required);
+            }
+
+            // 更新推荐电机功率显示
+            document.getElementById('res_p_motor').innerText = selectedMotor;
+            
             // 显示最佳推荐
             container.classList.remove('hidden');
             errorDiv.classList.add('hidden');
@@ -518,6 +636,9 @@
             document.getElementById('rec_range').innerText = `${bestPump.minQ} - ${bestPump.maxQ} m³/h`;
             document.getElementById('rec_maxh').innerText = `${bestPump.maxH} m`;
             document.getElementById('rec_load').innerText = `${loadRate}%`;
+            
+            // 显示该泵型支持的电机列表
+            document.getElementById('rec_motor_list').innerText = bestPump.motorList ? `[${bestPump.motorList.join(', ')}]` : '';
 
             // 更新尺寸数据
             if (bestPump.dims) {
@@ -541,7 +662,16 @@
                 altCandidates.forEach(p => {
                     const li = document.createElement('li');
                     const lr = (Q / p.maxQ * 100).toFixed(0);
-                    li.innerHTML = `<b>${p.model}</b>: 流量上限 ${p.maxQ} m³/h, 负荷率 ${lr}%`;
+                    // 检查备选泵是否能承载此功率
+                    let note = "";
+                    if (p.motorList) {
+                        const maxMotor = Math.max(...p.motorList);
+                        if (maxMotor < P_required) {
+                            note = `<span class='text-red-500 ml-1 text-[10px]'>(需定制电机: 需求${Math.ceil(P_required)}kW > 最大${maxMotor}kW)</span>`;
+                        }
+                    }
+                    
+                    li.innerHTML = `<b>${p.model}</b>: 流量上限 ${p.maxQ} m³/h, 负荷率 ${lr}%${note}`;
                     altList.appendChild(li);
                 });
             } else {
