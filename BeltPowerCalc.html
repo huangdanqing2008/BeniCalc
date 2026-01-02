@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DTII 皮带机选型计算器</title>
+    <style>
+        /* 简单的内嵌 CSS，确保无需联网加载样式库 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: white;
+            width: 100%;
+            max-width: 500px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 20px;
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px; /* 防止手机缩放 */
+            box-sizing: border-box; /* 确保padding不撑大宽度 */
+        }
+        .btn-calc {
+            width: 100%;
+            padding: 12px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+        .btn-calc:active {
+            background-color: #004494;
+        }
+        .result-box {
+            background-color: #e7f1ff;
+            border-left: 5px solid #0056b3;
+            padding: 15px;
+            margin-top: 25px;
+            border-radius: 4px;
+            display: none; /* 默认隐藏 */
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .result-item.highlight {
+            font-weight: bold;
+            color: #d9534f;
+            font-size: 18px;
+            margin-top: 10px;
+            border-top: 1px solid #cbdbf1;
+            padding-top: 10px;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏭 DTII(A) 简易计算器</h1>
+
+    <div class="form-group">
+        <label>带宽 B (mm)</label>
+        <select id="width">
+            <option value="500">500</option>
+            <option value="650">650</option>
+            <option value="800">800</option>
+            <option value="1000" selected>1000</option>
+            <option value="1200">1200</option>
+            <option value="1400">1400</option>
+            <option value="1600">1600</option>
+            <option value="1800">1800</option>
+            <option value="2000">2000</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>设计输送量 Q (t/h)</label>
+        <input type="number" id="capacity" value="500" placeholder="例如: 500">
+    </div>
+
+    <div class="form-group">
+        <label>带速 v (m/s)</label>
+        <input type="number" id="speed" value="2.0" step="0.1" placeholder="例如: 1.6 或 2.0">
+    </div>
+
+    <div class="form-group">
+        <label>水平长度 L (m)</label>
+        <input type="number" id="length" value="100" placeholder="机头到机尾水平距离">
+    </div>
+
+    <div class="form-group">
+        <label>提升高度 H (m)</label>
+        <input type="number" id="height" value="10" placeholder="正值为上运，负值为下运">
+    </div>
+
+    <button class="btn-calc" onclick="calculate()">开始计算 (Calculate)</button>
+
+    <div class="result-box" id="resultArea">
+        <div class="result-item">
+            <span>轴功率 (Axis Power):</span>
+            <span id="pAxis">0 kW</span>
+        </div>
+        <div class="result-item">
+            <span>物料线负荷 (Load):</span>
+            <span id="qLoad">0 kg/m</span>
+        </div>
+        <div class="result-item">
+            <span>圆周驱动力 (Force):</span>
+            <span id="fTotal">0 kN</span>
+        </div>
+        
+        <div class="result-item highlight">
+            <span>推荐电机功率:</span>
+            <span id="pMotor">0 kW</span>
+        </div>
+    </div>
+    
+    <div class="footer">
+        适用于方案估算 | Based on DTII Standard
+    </div>
+</div>
+
+<script>
+    function calculate() {
+        // 1. 获取输入
+        let B = parseFloat(document.getElementById('width').value);
+        let Q = parseFloat(document.getElementById('capacity').value);
+        let v = parseFloat(document.getElementById('speed').value);
+        let L = parseFloat(document.getElementById('length').value);
+        let H = parseFloat(document.getElementById('height').value);
+
+        // 简单校验
+        if(isNaN(Q) || isNaN(v) || isNaN(L) || isNaN(H)) {
+            alert("请输入完整的数值！");
+            return;
+        }
+
+        // 2. 基础参数定义
+        let g = 9.81;
+        let f = 0.025; // 模拟摩擦系数 (综合取值)
+        let eta = 0.9; // 传动效率
+        let k_safe = 1.15; // 电机备用系数
+
+        // 3. 估算旋转零件及胶带每米质量 qG (kg/m) - DTII 经验值
+        // 使用简单的 map 映射，实际设计应查表
+        let qG_map = {
+            500: 20, 650: 30, 800: 45, 1000: 60, 
+            1200: 80, 1400: 100, 1600: 120, 1800: 150, 2000: 180
+        };
+        let qG = qG_map[B] || (B * 0.08);
+
+        // 4. 计算物料每米质量 qm
+        let qm = Q / (3.6 * v);
+
+        // 5. 长度系数 C
+        let C = 1.0;
+        if (L <= 80) C = 1.9;
+        else if (L <= 200) C = 1.5;
+        else if (L <= 500) C = 1.2;
+        else C = 1.05;
+
+        // 6. 圆周驱动力计算 F (N)
+        // 运行阻力
+        let F_res = C * f * L * g * (qm + qG);
+        // 提升阻力
+        let F_lift = qm * g * H;
+        
+        let F_total = F_res + F_lift;
+        
+        // 7. 轴功率 P (kW)
+        let P_axis = (F_total * v) / 1000;
+        if (P_axis < 0) P_axis = 0; // 防止下运发电状态显示负值（此处仅做驱动功率计算）
+
+        // 8. 电机功率 P_M
+        let P_motor_req = (P_axis / eta) * k_safe;
+
+        // 9. 匹配标准电机系列
+        let motor_series = [1.5, 2.2, 3, 4, 5.5, 7.5, 11, 15, 18.5, 22, 30, 37, 45, 55, 75, 90, 110, 132, 160, 185, 200, 220, 250, 280, 315, 355, 400];
+        let selected_motor = "需定制 (>400)";
+        
+        for (let m of motor_series) {
+            if (m >= P_motor_req) {
+                selected_motor = m + " kW";
+                break;
+            }
+        }
+
+        // 10. 显示结果
+        document.getElementById('resultArea').style.display = "block";
+        document.getElementById('pAxis').innerText = P_axis.toFixed(2) + " kW";
+        document.getElementById('qLoad').innerText = qm.toFixed(1) + " kg/m";
+        document.getElementById('fTotal').innerText = (F_total/1000).toFixed(2) + " kN";
+        document.getElementById('pMotor').innerText = selected_motor;
+    }
+</script>
+
+</body>
+</html>
