@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlurryMaster | 渣浆泵智能选型</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background-color: #f0f4f8; }
+        .input-group label { font-size: 0.875rem; font-weight: 600; color: #475569; margin-bottom: 0.25rem; display: block; }
+        .input-group input { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; transition: all 0.2s; }
+        .input-group input:focus { border-color: #2563eb; outline: none; ring: 2px; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .card { background: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .result-value { font-family: 'Courier New', Courier, monospace; font-weight: 700; }
+        @media print {
+            .no-print { display: none; }
+            body { background: white; }
+            .card { box-shadow: none; border: 1px solid #ddd; }
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Navbar -->
+    <nav class="bg-slate-800 text-white p-4 shadow-lg">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-industry text-2xl text-blue-400"></i>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">SlurryMaster</h1>
+                    <p class="text-xs text-slate-400">选矿厂渣浆泵选型助手</p>
+                </div>
+            </div>
+            <button onclick="window.print()" class="no-print bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-sm transition">
+                <i class="fa-solid fa-print mr-2"></i>打印报告
+            </button>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- 左侧：输入参数 -->
+        <div class="lg:col-span-4 space-y-6">
+            <div class="card p-6 border-t-4 border-blue-600">
+                <h2 class="text-lg font-bold mb-4 flex items-center">
+                    <i class="fa-solid fa-sliders text-blue-600 mr-2"></i> 工况参数输入
+                </h2>
+                
+                <form id="calcForm" onsubmit="event.preventDefault(); calculatePump();" class="space-y-4">
+                    
+                    <div class="input-group">
+                        <label>矿浆流量 Q (m³/h)</label>
+                        <div class="relative">
+                            <input type="number" id="flow" step="1" placeholder="例如: 280" required>
+                            <span class="absolute right-3 top-2 text-slate-400 text-sm">m³/h</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>扬程 H (m)</label>
+                        <div class="relative">
+                            <input type="number" id="head" step="0.1" placeholder="例如: 45" required>
+                            <span class="absolute right-3 top-2 text-slate-400 text-sm">m</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label>矿石真比重 Sg</label>
+                            <input type="number" id="sg_solid" step="0.01" value="2.70" required>
+                        </div>
+                        <div class="input-group">
+                            <label>重量浓度 Cw (%)</label>
+                            <input type="number" id="conc_w" step="0.1" placeholder="例如: 35" required>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded text-sm text-slate-600 border border-slate-200">
+                        <div class="flex justify-between items-center mb-1">
+                            <span>泵大致效率 (η):</span>
+                            <input type="number" id="efficiency" value="65" class="w-16 p-1 border rounded text-right bg-white">%
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>电机富余系数 (SF):</span>
+                            <select id="sf" class="w-16 p-1 border rounded text-right bg-white">
+                                <option value="1.1">1.1</option>
+                                <option value="1.2" selected>1.2</option>
+                                <option value="1.3">1.3</option>
+                                <option value="1.5">1.5</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition transform active:scale-95 flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-calculator"></i> 开始计算选型
+                    </button>
+                    
+                    <button type="button" onclick="loadDemo()" class="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 font-semibold py-2 rounded-lg transition text-sm">
+                        加载示例数据 (球磨机排矿)
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 右侧：计算结果 -->
+        <div class="lg:col-span-8 space-y-6">
+            
+            <!-- 矿浆性质结果 -->
+            <div class="card p-6">
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">1. 矿浆物理性质计算</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div class="p-3 bg-slate-50 rounded">
+                        <div class="text-xs text-slate-500">矿浆比重 (Sm)</div>
+                        <div class="text-xl result-value text-blue-700" id="res_sg_slurry">-</div>
+                        <div class="text-xs text-slate-400">t/m³</div>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded">
+                        <div class="text-xs text-slate-500">体积浓度 (Cv)</div>
+                        <div class="text-xl result-value text-blue-700" id="res_cv">-</div>
+                        <div class="text-xs text-slate-400">%</div>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded">
+                        <div class="text-xs text-slate-500">固体产量</div>
+                        <div class="text-xl result-value text-slate-700" id="res_tph_solid">-</div>
+                        <div class="text-xs text-slate-400">t/h</div>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded">
+                        <div class="text-xs text-slate-500">总矿浆重量</div>
+                        <div class="text-xl result-value text-slate-700" id="res_tph_total">-</div>
+                        <div class="text-xs text-slate-400">t/h</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 功率结果 -->
+            <div class="card p-6 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-100 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">2. 动力参数计算</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-slate-600">水轴功率 (Pw):</span>
+                            <span class="font-bold" id="res_p_water">- kW</span>
+                        </div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-slate-600">矿浆轴功率 (Psh):</span>
+                            <span class="font-bold text-lg text-blue-700" id="res_p_shaft">- kW</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-1">
+                            *公式: P = (Q × H × Sm) / (367 × η)
+                        </div>
+                    </div>
+                    <div class="border-l pl-0 md:pl-6 border-slate-200">
+                        <div class="text-sm text-slate-500 mb-1">建议安装电机功率</div>
+                        <div class="text-3xl font-bold text-green-600 mb-1" id="res_p_motor">- kW</div>
+                        <div class="text-xs bg-green-100 text-green-800 inline-block px-2 py-1 rounded">
+                            已含富余系数 SF=<span id="display_sf">1.2</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 选型推荐 -->
+            <div class="card p-6 border-l-4 border-green-500">
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 border-b pb-2">3. 智能选型推荐 (参考 AH 系列)</h3>
+                
+                <div id="pump-recommendation" class="hidden">
+                    <div class="flex flex-col md:flex-row gap-4 items-start">
+                        <div class="bg-blue-50 p-4 rounded-lg flex-1 w-full">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="text-sm text-blue-500 font-bold mb-1">首选型号</div>
+                                    <div class="text-3xl font-bold text-slate-800" id="rec_model">8/6 E-AH</div>
+                                </div>
+                                <i class="fa-solid fa-circle-check text-2xl text-green-500"></i>
+                            </div>
+                            <div class="mt-3 space-y-1 text-sm text-slate-600">
+                                <p>流量范围: <span id="rec_range" class="font-mono">100-300</span> m³/h</p>
+                                <p>最高扬程: <span id="rec_maxh" class="font-mono">65</span> m</p>
+                                <p>当前负荷率: <span id="rec_load" class="font-bold">85%</span> (接近 BEP)</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex-1 w-full text-sm">
+                            <p class="font-bold text-slate-700 mb-2">备选建议：</p>
+                            <ul id="alt_pumps" class="space-y-2 text-slate-600 list-disc pl-4">
+                                <!-- JS填充 -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="pump-error" class="hidden text-center py-6 text-slate-400">
+                    <i class="fa-solid fa-circle-exclamation text-4xl mb-2 text-yellow-400"></i>
+                    <p>未找到完美匹配的标准泵型，请检查参数或咨询厂家定制。</p>
+                </div>
+                
+                <div id="pump-placeholder" class="text-center py-8 text-slate-400">
+                    <i class="fa-solid fa-pump-medical text-4xl mb-2 opacity-30"></i>
+                    <p>输入参数并点击计算以获取推荐型号</p>
+                </div>
+
+            </div>
+            
+            <div class="text-xs text-slate-400 text-center mt-4 no-print">
+                <p>免责声明：本工具仅供初步选型估算，不考虑管路损失曲线交点。最终选型请以厂家提供的性能曲线图为准。</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 模拟渣浆泵数据库 (基于常见的通用重型渣浆泵参数范围)
+        // MinQ/MaxQ 为推荐运行区间, MaxH 为单级大概上限
+        const pumpDatabase = [
+            { model: "1.5/1 B-AH", minQ: 3.6, maxQ: 20, maxH: 60, bep: 12 },
+            { model: "2/1.5 B-AH", minQ: 10, maxQ: 40, maxH: 60, bep: 25 },
+            { model: "3/2 C-AH",   minQ: 25, maxQ: 75, maxH: 60, bep: 50 },
+            { model: "4/3 C-AH",   minQ: 50, maxQ: 130, maxH: 60, bep: 90 },
+            { model: "4/3 D-AH",   minQ: 60, maxQ: 160, maxH: 75, bep: 110 },
+            { model: "6/4 D-AH",   minQ: 100, maxQ: 280, maxH: 65, bep: 200 },
+            { model: "6/4 E-AH",   minQ: 120, maxQ: 320, maxH: 85, bep: 240 },
+            { model: "8/6 E-AH",   minQ: 200, maxQ: 550, maxH: 65, bep: 380 },
+            { model: "8/6 F-AH",   minQ: 250, maxQ: 650, maxH: 85, bep: 450 },
+            { model: "10/8 F-AH",  minQ: 400, maxQ: 900, maxH: 65, bep: 700 },
+            { model: "10/8 ST-AH", minQ: 500, maxQ: 1100, maxH: 80, bep: 850 },
+            { model: "12/10 ST-AH",minQ: 800, maxQ: 1600, maxH: 70, bep: 1200 },
+            { model: "14/12 ST-AH",minQ: 1200, maxQ: 2200, maxH: 65, bep: 1700 }
+        ];
+
+        function loadDemo() {
+            document.getElementById('flow').value = 320;
+            document.getElementById('head').value = 45;
+            document.getElementById('sg_solid').value = 2.85;
+            document.getElementById('conc_w').value = 40;
+            document.getElementById('efficiency').value = 70;
+            calculatePump();
+        }
+
+        function calculatePump() {
+            // 1. 获取输入
+            const Q = parseFloat(document.getElementById('flow').value);
+            const H = parseFloat(document.getElementById('head').value);
+            const Ss = parseFloat(document.getElementById('sg_solid').value); // 固体比重
+            const Cw = parseFloat(document.getElementById('conc_w').value);   // 重量浓度
+            const Eta = parseFloat(document.getElementById('efficiency').value) / 100; // 效率
+            const SF = parseFloat(document.getElementById('sf').value);       // 服务系数
+
+            if (!Q || !H || !Ss || !Cw) {
+                alert("请填写所有必填参数！");
+                return;
+            }
+
+            // 2. 物理性质计算
+            // 矿浆比重 Sm = 100 / ( (Cw/Ss) + (100-Cw)/1 )  假设水比重为1
+            const Sm = 100 / ( (Cw / Ss) + (100 - Cw) );
+            
+            // 体积浓度 Cv = Sm * Cw / Ss
+            const Cv = (Sm * Cw) / Ss;
+
+            // 产量计算
+            const TotalTph = Q * Sm;
+            const SolidTph = TotalTph * (Cw / 100);
+
+            // 3. 功率计算
+            // 轴功率 P_shaft = (Q * H * Sm) / (367 * Efficiency)
+            // 367 是常数 (3600*1000 / (9.81*1000) 的简化倒数相关) 用于 m3/h -> kW
+            const P_water = (Q * H * 1.0) / (367 * Eta); // 假设清水的轴功率
+            const P_shaft = (Q * H * Sm) / (367 * Eta);  // 矿浆轴功率
+            const P_motor = P_shaft * SF;                // 推荐电机功率
+
+            // 4. 更新界面显示 (物理参数)
+            document.getElementById('res_sg_slurry').innerText = Sm.toFixed(3);
+            document.getElementById('res_cv').innerText = Cv.toFixed(2);
+            document.getElementById('res_tph_solid').innerText = SolidTph.toFixed(1);
+            document.getElementById('res_tph_total').innerText = TotalTph.toFixed(1);
+
+            document.getElementById('res_p_water').innerText = P_water.toFixed(1) + " kW";
+            document.getElementById('res_p_shaft').innerText = P_shaft.toFixed(1) + " kW";
+            document.getElementById('res_p_motor').innerText = Math.ceil(P_motor) + " kW"; // 电机向上取整
+            document.getElementById('display_sf').innerText = SF;
+
+            // 5. 泵选型逻辑
+            selectPump(Q, H);
+        }
+
+        function selectPump(Q, H) {
+            const container = document.getElementById('pump-recommendation');
+            const errorDiv = document.getElementById('pump-error');
+            const placeholder = document.getElementById('pump-placeholder');
+            
+            placeholder.classList.add('hidden');
+
+            // 筛选满足流量和扬程要求的泵
+            // 简单逻辑：流量在 Min 和 Max 之间，且泵能提供的最大扬程 > 需要扬程
+            let candidates = pumpDatabase.filter(p => 
+                Q >= p.minQ && 
+                Q <= p.maxQ && 
+                p.maxH >= H
+            );
+
+            if (candidates.length === 0) {
+                container.classList.add('hidden');
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // 排序逻辑：寻找 BEP (最佳效率点) 最接近输入流量 Q 的泵
+            // 距离 = abs(泵BEP - Q)
+            candidates.sort((a, b) => Math.abs(a.bep - Q) - Math.abs(b.bep - Q));
+
+            const bestPump = candidates[0];
+            const loadRate = (Q / bestPump.maxQ * 100).toFixed(0);
+            
+            // 显示最佳推荐
+            container.classList.remove('hidden');
+            errorDiv.classList.add('hidden');
+
+            document.getElementById('rec_model').innerText = bestPump.model;
+            document.getElementById('rec_range').innerText = `${bestPump.minQ} - ${bestPump.maxQ}`;
+            document.getElementById('rec_maxh').innerText = bestPump.maxH;
+            
+            // 计算简单的负荷状态评价
+            let loadText = loadRate + "%";
+            if(Math.abs(bestPump.bep - Q) / bestPump.bep < 0.2) {
+                loadText += " (优选区间)";
+            } else if (Q > bestPump.bep) {
+                loadText += " (偏大流量)";
+            } else {
+                loadText += " (偏小流量)";
+            }
+            document.getElementById('rec_load').innerText = loadText;
+
+            // 显示备选
+            const altList = document.getElementById('alt_pumps');
+            altList.innerHTML = '';
+            if (candidates.length > 1) {
+                candidates.slice(1, 4).forEach(p => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<b>${p.model}</b>: 范围 ${p.minQ}-${p.maxQ} m³/h (偏离BEP ${(Math.abs(p.bep - Q)/Q*100).toFixed(0)}%)`;
+                    altList.appendChild(li);
+                });
+            } else {
+                altList.innerHTML = '<li>无其他合适备选型号</li>';
+            }
+        }
+    </script>
+</body>
+</html>
