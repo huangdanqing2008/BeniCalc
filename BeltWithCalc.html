@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DTII 胶带机选型计算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-6">
+    <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+        <h2 class="text-2xl font-extrabold mb-6 text-slate-800 border-l-4 border-blue-500 pl-3">DTII 带宽推荐工具</h2>
+        
+        <div class="space-y-5">
+            <div>
+                <label class="block text-sm font-semibold text-gray-600 mb-1">设计小时运量 (Q) - t/h</label>
+                <input type="number" id="capacity" class="w-full border-gray-300 rounded-lg shadow-sm p-3 bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition" placeholder="输入小时运量">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">堆密度 (ρ) - t/m³</label>
+                    <input type="number" id="density" step="0.1" value="1.8" class="w-full border-gray-300 rounded-lg shadow-sm p-3 bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">设定带速 (v) - m/s</label>
+                    <input type="number" id="velocity" step="0.1" value="2.0" class="w-full border-gray-300 rounded-lg shadow-sm p-3 bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition">
+                </div>
+            </div>
+
+            <div class="text-[11px] text-gray-400 italic">
+                * 计算基准：DTII(A)手册，槽角35°，动堆积角20°，水平运输。
+            </div>
+
+            <button onclick="calculate()" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-700 active:scale-95 transition-all shadow-lg">
+                生成推荐带宽
+            </button>
+        </div>
+
+        <div id="result" class="mt-8 hidden animate-in fade-in duration-500">
+            <div class="bg-blue-50 rounded-2xl p-6 border border-blue-100">
+                <p class="text-blue-800 text-sm font-medium text-center uppercase tracking-wider">建议使用带宽</p>
+                <p id="widthResult" class="text-5xl font-black text-blue-600 text-center my-3">--</p>
+                <div class="mt-4 pt-4 border-t border-blue-200">
+                    <div class="flex justify-between text-xs text-blue-700 mb-1">
+                        <span>当前条件下最大能力:</span>
+                        <span id="maxQ" class="font-bold">--</span>
+                    </div>
+                    <div class="flex justify-between text-xs text-blue-700">
+                        <span>负载率:</span>
+                        <span id="loadRatio" class="font-bold">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DTII 截面积系数 S (对应带宽 500-1600mm)
+        const dtData = [
+            { width: 500,  S: 0.0125 },
+            { width: 650,  S: 0.0232 },
+            { width: 800,  S: 0.0375 },
+            { width: 1000, S: 0.0620 },
+            { width: 1200, S: 0.0926 },
+            { width: 1400, S: 0.1292 },
+            { width: 1600, S: 0.1719 }
+        ];
+
+        function calculate() {
+            const Q = parseFloat(document.getElementById('capacity').value);
+            const rho = parseFloat(document.getElementById('density').value);
+            const v = parseFloat(document.getElementById('velocity').value);
+
+            if (!Q || !rho || !v) {
+                alert("请完整输入运量、堆密度和带速参数");
+                return;
+            }
+
+            // 公式：Q = 3600 * S * v * rho  =>  S_min = Q / (3600 * v * rho)
+            const requiredS = Q / (3600 * v * rho);
+            
+            let recommended = null;
+
+            for (let item of dtData) {
+                if (item.S >= requiredS) {
+                    recommended = item;
+                    break;
+                }
+            }
+
+            const resDiv = document.getElementById('result');
+            resDiv.classList.remove('hidden');
+
+            if (recommended) {
+                const maxCapacity = (3600 * recommended.S * v * rho).toFixed(1);
+                const ratio = ((Q / maxCapacity) * 100).toFixed(1);
+
+                document.getElementById('widthResult').innerText = recommended.width + " mm";
+                document.getElementById('maxQ').innerText = maxCapacity + " t/h";
+                document.getElementById('loadRatio').innerText = ratio + "%";
+            } else {
+                document.getElementById('widthResult').innerText = "超出范围";
+                document.getElementById('maxQ').innerText = "N/A";
+                document.getElementById('loadRatio').innerText = ">100%";
+            }
+        }
+    </script>
+</body>
+</html>
