@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>矿仓闸门压力计算工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .calculator-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .note {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f6f3;
+            border-left: 5px solid #1abc9c;
+            border-radius: 4px;
+            display: none;
+        }
+        .result-box h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #16a085;
+        }
+        .result-item {
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .highlight {
+            font-size: 20px;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator-container">
+    <h2>矿仓闸门压力计算器</h2>
+    
+    <div class="form-group">
+        <label for="density">矿石容重 r (t/m³)</label>
+        <input type="number" id="density" step="0.1" placeholder="例如：2.8">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="length">放料口长度 L (m)</label>
+            <input type="number" id="length" step="0.1" placeholder="例如：1.2">
+        </div>
+        <div class="form-group">
+            <label for="width">放料口宽度 W (m)</label>
+            <input type="number" id="width" step="0.1" placeholder="例如：1.0">
+        </div>
+    </div>
+    <span class="note">* 长度和宽度用于自动计算有效面积 F 和 水力半径 R</span>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="reposeAngle">物料堆积角 φ (度)</label>
+            <input type="number" id="reposeAngle" step="1" placeholder="例如：45">
+        </div>
+        <div class="form-group">
+            <label for="gateAngle">闸门倾角 α (度)</label>
+            <input type="number" id="gateAngle" step="1" value="0" placeholder="水平为0，竖直为90">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="k0">操作特点系数 k₀</label>
+        <select id="k0">
+            <option value="2.0">每打开一次闸门全部卸空的矿仓 (k₀ ≥ 2)</option>
+            <option value="1.5">每打开一次闸门非全部卸空的矿仓 (k₀ ≥ 1.5)</option>
+        </select>
+    </div>
+
+    <button onclick="calculatePressure()">计 算</button>
+
+    <div id="resultBox" class="result-box">
+        <h3>计算结果</h3>
+        <div class="result-item">闸门有效面积 F: <span id="outF">0</span> m²</div>
+        <div class="result-item">水力半径 R: <span id="outR">0</span> m</div>
+        <div class="result-item">侧压系数 k: <span id="outK">0</span></div>
+        <hr style="border:0; border-top:1px solid #ccc; margin: 10px 0;">
+        <div class="result-item">闸门所受总压力 G:<br> <span id="outG" class="highlight">0</span> 吨</div>
+    </div>
+</div>
+
+<script>
+    function calculatePressure() {
+        // 获取输入值
+        const r = parseFloat(document.getElementById('density').value);
+        const L = parseFloat(document.getElementById('length').value);
+        const W = parseFloat(document.getElementById('width').value);
+        const phiDeg = parseFloat(document.getElementById('reposeAngle').value);
+        const alphaDeg = parseFloat(document.getElementById('gateAngle').value);
+        const k0 = parseFloat(document.getElementById('k0').value);
+
+        // 数据校验
+        if (isNaN(r) || isNaN(L) || isNaN(W) || isNaN(phiDeg) || isNaN(alphaDeg)) {
+            alert("请完整填写所有数字参数！");
+            return;
+        }
+
+        // 基础几何计算
+        const F = L * W; // 面积
+        const R = (L * W) / (2 * (L + W)); // 水力半径 (面积/周长)
+
+        // 角度转弧度
+        const phiRad = phiDeg * Math.PI / 180;
+        const alphaRad = alphaDeg * Math.PI / 180;
+
+        // 计算侧压系数 k = (1 - sinφ) / (1 + sinφ)
+        const sinPhi = Math.sin(phiRad);
+        const k = (1 - sinPhi) / (1 + sinPhi);
+
+        // 计算角度影响因子 (cos²α + k·sin²α)
+        const cosAlpha = Math.cos(alphaRad);
+        const sinAlpha = Math.sin(alphaRad);
+        const angleFactor = Math.pow(cosAlpha, 2) + k * Math.pow(sinAlpha, 2);
+
+        // 计算总压力 G = 5.6 * k0 * r * R * F * 角度因子
+        const G = 5.6 * k0 * r * R * F * angleFactor;
+
+        // 显示结果
+        document.getElementById('outF').innerText = F.toFixed(3);
+        document.getElementById('outR').innerText = R.toFixed(4);
+        document.getElementById('outK').innerText = k.toFixed(4);
+        document.getElementById('outG').innerText = G.toFixed(2);
+        
+        document.getElementById('resultBox').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
